@@ -128,10 +128,14 @@ async function getAllTags() {
     let labelCol = headers.findIndex(h => h === 'label');
     if (labelCol === -1) labelCol = -1; // Label column is optional
     
-    console.log('Tags sheet - Prefix column index:', prefixCol, 'Label column index:', labelCol);
+    // Find the Agents column
+    let agentsCol = headers.findIndex(h => h === 'agents');
+    if (agentsCol === -1) agentsCol = -1; // Agents column is optional
     
-    // Read all data rows (both prefix and label columns)
-    const maxCol = Math.max(prefixCol, labelCol >= 0 ? labelCol : prefixCol);
+    console.log('Tags sheet - Prefix column index:', prefixCol, 'Label column index:', labelCol, 'Agents column index:', agentsCol);
+    
+    // Read all data rows (prefix, label, and agents columns)
+    const maxCol = Math.max(prefixCol, labelCol >= 0 ? labelCol : prefixCol, agentsCol >= 0 ? agentsCol : prefixCol);
     const colRange = `${String.fromCharCode(65)}2:${String.fromCharCode(65 + maxCol)}`;
     
     const response = await gapi.client.sheets.spreadsheets.values.get({
@@ -143,16 +147,21 @@ async function getAllTags() {
     const rows = response.result.values || [];
     const tags = [];
     const tagLabelMap = {}; // Map prefix -> label
+    const tagAgentsMap = {}; // Map prefix -> agent IDs (CSV string)
     
     rows.forEach(row => {
       const prefix = prefixCol >= 0 ? (row[prefixCol] || '').toString().trim() : '';
       if (!prefix) return; // Skip empty rows
       
       const label = labelCol >= 0 && row[labelCol] ? (row[labelCol] || '').toString().trim() : '';
+      const agents = agentsCol >= 0 && row[agentsCol] ? (row[agentsCol] || '').toString().trim() : '';
       
       tags.push(prefix);
       if (label) {
         tagLabelMap[prefix.toLowerCase()] = label;
+      }
+      if (agents) {
+        tagAgentsMap[prefix.toLowerCase()] = agents;
       }
     });
     
@@ -160,17 +169,89 @@ async function getAllTags() {
     
     const result = {
       tags: tags,
-      tagLabelMap: tagLabelMap
+      tagLabelMap: tagLabelMap,
+      tagAgentsMap: tagAgentsMap
     };
     
     // Cache the result
     saveToCache('tags', result);
     
-    console.log(`Loaded ${tags.length} tags with ${Object.keys(tagLabelMap).length} labels`);
+    console.log(`Loaded ${tags.length} tags with ${Object.keys(tagLabelMap).length} labels and ${Object.keys(tagAgentsMap).length} with agents`);
     return result;
   } catch (error) {
     console.error('Error loading tags:', error);
     throw new Error('Failed to load tags: ' + (error.result?.error?.message || error.message));
+  }
+}
+
+/**
+ * Get all agents from Agents sheet
+ * Sheet has columns: ID and Agent
+ * Returns ID -> Agent name mapping
+ */
+async function getAllAgents() {
+  if (!checkSignedIn()) {
+    throw new Error('User not signed in');
+  }
+  
+  // Check cache first
+  const cached = getFromCache('agents');
+  if (cached) {
+    return cached;
+  }
+  
+  try {
+    // Read header to find ID and Agent columns
+    const headerResponse = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: CONFIG.SPREADSHEET_ID,
+      range: `${CONFIG.SHEET_NAMES.AGENTS}!A1:Z1`,
+      valueRenderOption: 'UNFORMATTED_VALUE'
+    });
+    
+    const headers = (headerResponse.result.values?.[0] || []).map(h => 
+      (h || '').toString().toLowerCase().trim()
+    );
+    
+    // Find the ID column
+    let idCol = headers.findIndex(h => h === 'id');
+    if (idCol === -1) idCol = 0; // Default to first column
+    
+    // Find the Agent column
+    let agentCol = headers.findIndex(h => h === 'agent');
+    if (agentCol === -1) agentCol = 1; // Default to second column
+    
+    console.log('Agents sheet - ID column index:', idCol, 'Agent column index:', agentCol);
+    
+    // Read all data rows
+    const maxCol = Math.max(idCol, agentCol);
+    const colRange = `${String.fromCharCode(65)}2:${String.fromCharCode(65 + maxCol)}`;
+    
+    const response = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: CONFIG.SPREADSHEET_ID,
+      range: `${CONFIG.SHEET_NAMES.AGENTS}!${colRange}`,
+      valueRenderOption: 'UNFORMATTED_VALUE'
+    });
+    
+    const rows = response.result.values || [];
+    const agentIdMap = {}; // Map ID -> Agent name
+    
+    rows.forEach(row => {
+      const id = idCol >= 0 ? (row[idCol] || '').toString().trim() : '';
+      const agent = agentCol >= 0 ? (row[agentCol] || '').toString().trim() : '';
+      
+      if (id && agent) {
+        agentIdMap[id] = agent;
+      }
+    });
+    
+    // Cache the result
+    saveToCache('agents', agentIdMap);
+    
+    console.log(`Loaded ${Object.keys(agentIdMap).length} agents`);
+    return agentIdMap;
+  } catch (error) {
+    console.error('Error loading agents:', error);
+    throw new Error('Failed to load agents: ' + (error.result?.error?.message || error.message));
   }
 }
 

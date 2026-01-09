@@ -7,7 +7,8 @@ const CONFIG = {
   DISCOVERY_DOCS: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
   SHEET_NAMES: {
     MAIN: 'Channels',
-    TAGS: 'Tags'
+    TAGS: 'Tags',
+    AGENTS: 'Agents'
   },
   COLUMNS: {
     NAME: 0,    // Column A

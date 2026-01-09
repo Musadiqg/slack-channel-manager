@@ -8,6 +8,8 @@ const AppState = {
   allChannels: [],
   allTags: [],
   tagLabelMap: {}, // Map prefix -> label
+  tagAgentsMap: {}, // Map prefix -> agent IDs (CSV string)
+  agentIdMap: {}, // Map agent ID -> agent name
   filteredChannels: [],
   
   // Pagination
@@ -144,10 +146,14 @@ async function loadInitialData() {
   try {
     showTableLoading(true);
     
-    // Load tags first (now returns {tags, tagLabelMap})
+    // Load agents first (needed for tag agent mapping)
+    AppState.agentIdMap = await getAllAgents();
+    
+    // Load tags (now returns {tags, tagLabelMap, tagAgentsMap})
     const tagsData = await getAllTags();
     AppState.allTags = tagsData.tags || tagsData; // Handle both old and new format
     AppState.tagLabelMap = tagsData.tagLabelMap || {};
+    AppState.tagAgentsMap = tagsData.tagAgentsMap || {};
     
     // Load channels
     AppState.allChannels = await getAllChannels();
@@ -381,14 +387,18 @@ function renderTableRow(channel) {
   const hasPending = AppState.pendingChanges[channel.row] !== undefined;
   const tags = getEffectiveTags(channel);
   const channelType = (channel.type || 'public').toLowerCase();
-  
+    
   // Build tags HTML
   let tagsHtml = '';
   if (tags.length > 0) {
     tagsHtml = tags.map(tag => {
       const tagLabel = getTagLabel(tag);
       const color = getTagColor(tag);
-      return `<span class="tag-badge" style="background:${color.bg};color:${color.text};" data-tag="${escapeHtml(tag)}" title="${escapeHtml(tag)}">${escapeHtml(tagLabel)}<span class="remove-tag" onclick="event.stopPropagation();removeTag(${channel.row},'${escapeHtml(tag)}')">&times;</span></span>`;
+      const agents = getTagAgents(tag);
+      const agentsHtml = agents.length > 0 
+        ? `<span class="tag-agents">${agents.map(agent => `<span class="agent-badge">${escapeHtml(agent)}</span>`).join('')}</span>`
+        : '';
+      return `<span class="tag-with-agents"><span class="tag-badge" style="background:${color.bg};color:${color.text};" data-tag="${escapeHtml(tag)}" title="${escapeHtml(tag)}">${escapeHtml(tagLabel)}<span class="remove-tag" onclick="event.stopPropagation();removeTag(${channel.row},'${escapeHtml(tag)}')">&times;</span></span>${agentsHtml}</span>`;
     }).join('');
   } else {
     tagsHtml = '<span class="tag-badge untagged">untagged</span>';
@@ -479,6 +489,10 @@ function renderModalTags(searchQuery = '') {
     const count = AppState.tagCounts[tag] || 0;
     const color = getTagColor(tag);
     const tagLabel = getTagLabel(tag);
+    const agents = getTagAgents(tag);
+    const agentsHtml = agents.length > 0 
+      ? `<span class="tag-agents-small">${agents.map(agent => `<span class="agent-badge-small">${escapeHtml(agent)}</span>`).join('')}</span>`
+      : '';
     
     return `
       <div class="modal-tag-item ${isSelected ? 'selected' : ''}"
@@ -488,6 +502,7 @@ function renderModalTags(searchQuery = '') {
            title="${escapeHtml(tag)}">
         <span class="checkbox"></span>
         <span class="tag-label">${escapeHtml(tagLabel)}</span>
+        ${agentsHtml}
         <span class="tag-count">${count}</span>
       </div>
     `;
@@ -700,12 +715,17 @@ function renderDropdownTags(container, currentTags, row, tagsToShow = null) {
     const isSelected = currentTags.some(t => t.toLowerCase() === tag.toLowerCase());
     const color = getTagColor(tag);
     const tagLabel = getTagLabel(tag);
+    const agents = getTagAgents(tag);
+    const agentsHtml = agents.length > 0 
+      ? `<span class="tag-agents-small">${agents.map(agent => `<span class="agent-badge-small">${escapeHtml(agent)}</span>`).join('')}</span>`
+      : '';
     return `
       <div class="tag-dropdown-item ${isSelected ? 'selected' : ''}"
            onclick="toggleTag(${row}, '${escapeHtml(tag)}')"
            title="${escapeHtml(tag)}">
         <span class="checkbox"></span>
         <span>${escapeHtml(tagLabel)}</span>
+        ${agentsHtml}
       </div>
     `;
   }).join('');
@@ -727,6 +747,28 @@ function getTagLabel(prefix) {
   if (!prefix) return '';
   const label = AppState.tagLabelMap[prefix.toLowerCase()];
   return label || prefix;
+}
+
+/**
+ * Get agent names from CSV of agent IDs
+ * Returns array of agent names, or empty array if none found
+ */
+function getAgentNames(agentIdsCsv) {
+  if (!agentIdsCsv || typeof agentIdsCsv !== 'string') return [];
+  
+  const ids = agentIdsCsv.split(',').map(id => id.trim()).filter(id => id);
+  const names = ids.map(id => AppState.agentIdMap[id] || null).filter(name => name);
+  return names;
+}
+
+/**
+ * Get agent names for a tag prefix
+ */
+function getTagAgents(prefix) {
+  if (!prefix) return [];
+  const agentIds = AppState.tagAgentsMap[prefix.toLowerCase()];
+  if (!agentIds) return [];
+  return getAgentNames(agentIds);
 }
 
 function toggleTag(row, tag) {
