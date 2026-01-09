@@ -482,6 +482,7 @@ function renderModalTags(searchQuery = '') {
     
     return `
       <div class="modal-tag-item ${isSelected ? 'selected' : ''}"
+           data-tag="${escapeHtml(tag)}"
            onclick="toggleModalTag('${escapeHtml(tag)}')"
            style="${isSelected ? '' : `border-color: ${color.bg};`}"
            title="${escapeHtml(tag)}">
@@ -503,12 +504,18 @@ function toggleModalTag(tag) {
     AppState.modalSelectedTags.splice(index, 1);
   }
   
-  // Update visual state
-  const item = $$(`.modal-tag-item`).find(el => 
-    el.querySelector('.tag-label')?.textContent === tag
-  );
+  // Update visual state - find by data-tag attribute (prefix) instead of label text
+  const item = $(`.modal-tag-item[data-tag="${escapeHtml(tag)}"]`);
   if (item) {
-    item.classList.toggle('selected', AppState.modalSelectedTags.includes(tag));
+    const isSelected = AppState.modalSelectedTags.includes(tag);
+    item.classList.toggle('selected', isSelected);
+    // Update border color if not selected
+    if (!isSelected) {
+      const color = getTagColor(tag);
+      item.style.borderColor = color.bg;
+    } else {
+      item.style.borderColor = '';
+    }
   }
   
   updateModalSelectionInfo();
