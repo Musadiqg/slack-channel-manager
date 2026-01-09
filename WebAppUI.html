@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Channel Tag Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      color: #333;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: visible;
+      display: flex;
+      flex-direction: column;
+      max-height: calc(100vh - 40px);
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+      position: relative;
+    }
+    
+    .header h1 {
+      font-size: 32px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    
+    .header p {
+      font-size: 16px;
+      opacity: 0.9;
+    }
+    
+    .header-actions {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      gap: 10px;
+    }
+    
+    .header-button {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: 'Lato', sans-serif;
+    }
+    
+    .header-button:hover {
+      background: rgba(255, 255, 255, 0.3);
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+    
+    .header-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .header-button.has-changes {
+      background: rgba(255, 193, 7, 0.9);
+      border-color: rgba(255, 193, 7, 1);
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.8; }
+    }
+    
+    .unsaved-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #ffc107;
+      border-radius: 50%;
+      margin-left: 6px;
+      animation: blink 1s infinite;
+    }
+    
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    
+    .content {
+      padding: 30px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .stat-card {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      border: 2px solid #e9ecef;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .stat-value {
+      font-size: 36px;
+      font-weight: 700;
+      color: #667eea;
+      margin-bottom: 8px;
+    }
+    
+    .stat-label {
+      font-size: 14px;
+      color: #6c757d;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .main-grid {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 30px;
+      margin-bottom: 30px;
+      align-items: start;
+    }
+    
+    .sidebar {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      height: fit-content;
+      max-height: calc(100vh - 200px);
+      position: sticky;
+      top: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: #333;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #667eea;
+    }
+    
+    .search-box {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e9ecef;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-bottom: 15px;
+      transition: border-color 0.2s;
+    }
+    
+    .search-box:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .tag-list {
+      max-height: 500px;
+      overflow-y: auto;
+      margin-bottom: 15px;
+      padding-right: 4px;
+    }
+    
+    .tag-list::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .tag-list::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 3px;
+    }
+    
+    .tag-list::-webkit-scrollbar-thumb {
+      background: #667eea;
+      border-radius: 3px;
+    }
+    
+    .tag-list::-webkit-scrollbar-thumb:hover {
+      background: #5568d3;
+    }
+    
+    .tag-item {
+      padding: 12px;
+      margin: 6px 0;
+      background: white;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 2px solid transparent;
+    }
+    
+    .tag-item:hover {
+      background: #e7f3ff;
+      border-color: #667eea;
+    }
+    
+    .tag-item.selected {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
+    
+    .tag-item.selected .tag-count {
+      background: rgba(255,255,255,0.2);
+      color: white;
+    }
+    
+    .tag-name {
+      font-weight: 500;
+      font-size: 14px;
+    }
+    
+    .tag-count {
+      font-size: 12px;
+      background: #e9ecef;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+    
+    .button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+      margin-top: 10px;
+    }
+    
+    .button-primary {
+      background: #667eea;
+      color: white;
+    }
+    
+    .button-primary:hover {
+      background: #5568d3;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .button-secondary {
+      background: #6c757d;
+      color: white;
+    }
+    
+    .button-secondary:hover {
+      background: #5a6268;
+    }
+    
+    .channels-section {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .channels-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    
+    .channel-search {
+      flex: 1;
+      max-width: 400px;
+      padding: 12px;
+      border: 2px solid #e9ecef;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    
+    .channel-search:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .channel-list {
+      max-height: none;
+      overflow-y: visible;
+    }
+    
+    .channel-item {
+      background: white;
+      padding: 16px;
+      margin: 8px 0;
+      border-radius: 8px;
+      border-left: 4px solid transparent;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    
+    .channel-item:hover {
+      border-left-color: #667eea;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      transform: translateX(4px);
+    }
+    
+    .channel-item.selected {
+      border-left-color: #667eea;
+      background: #e7f3ff;
+    }
+    
+    .channel-item.has-pending {
+      border-left-color: #ffc107;
+      background: #fff9e6;
+    }
+    
+    .channel-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 6px;
+    }
+    
+    .channel-meta {
+      display: none;
+      gap: 15px;
+      font-size: 13px;
+      color: #6c757d;
+      margin-bottom: 8px;
+    }
+    
+    .show-members .channel-meta {
+      display: flex;
+    }
+    
+    .members-toggle {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-left: 10px;
+    }
+    
+    .members-toggle:hover {
+      background: #5568d3;
+    }
+    
+    .channel-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    
+    .channel-tag {
+      display: inline-block;
+      padding: 6px 12px;
+      background: #667eea;
+      color: white;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .channel-tag:hover {
+      background: #5568d3;
+      transform: translateY(-1px);
+    }
+    
+    .channel-tag.empty {
+      background: #e9ecef;
+      color: #6c757d;
+    }
+    
+    .edit-panel {
+      background: white;
+      border: 2px solid #667eea;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+      display: none;
+    }
+    
+    .edit-panel.active {
+      display: block;
+    }
+    
+    .edit-panel-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: #333;
+    }
+    
+    .tag-input-group {
+      margin-bottom: 15px;
+    }
+    
+    .tag-input-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: #333;
+    }
+    
+    .tag-select-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+    
+    .tag-select {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #e9ecef;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: 'Lato', sans-serif;
+    }
+    
+    .tag-select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .tag-chips-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+      min-height: 40px;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border: 2px dashed #e9ecef;
+    }
+    
+    .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: #667eea;
+      color: white;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    
+    .tag-chip-remove {
+      cursor: pointer;
+      font-weight: 700;
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+    
+    .tag-chip-remove:hover {
+      opacity: 1;
+    }
+    
+    .tag-input.invalid {
+      border-color: #dc3545;
+    }
+    
+    .tag-suggestions {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #6c757d;
+    }
+    
+    .tag-suggestions .suggestion {
+      display: inline-block;
+      padding: 4px 8px;
+      background: #e9ecef;
+      border-radius: 4px;
+      margin: 2px;
+      cursor: pointer;
+    }
+    
+    .tag-suggestions .suggestion:hover {
+      background: #667eea;
+      color: white;
+    }
+    
+    .alert {
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
+    
+    .alert-success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .alert-error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .alert-info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #6c757d;
+    }
+    
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    @media (max-width: 968px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .sidebar {
+        position: static;
+        max-height: none;
+      }
+      
+      .container {
+        max-height: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-actions">
+        <button class="header-button" id="refresh-btn" onclick="refreshData()" title="Refresh data from sheet">
+          🔄 Refresh
+        </button>
+        <button class="header-button" id="save-btn" onclick="saveAllChanges()" disabled title="Save all pending changes">
+          💾 Save Changes<span id="unsaved-indicator" class="unsaved-indicator" style="display: none;"></span>
+        </button>
+      </div>
+      <h1>📊 Channel Tag Manager</h1>
+      <p>Manage and organize your Slack channels with tags</p>
+    </div>
+    
+    <div class="content">
+      <!-- Statistics -->
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="total-channels">-</div>
+          <div class="stat-label">Total Channels</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="total-tags">-</div>
+          <div class="stat-label">Unique Tags</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="untagged">-</div>
+          <div class="stat-label">Untagged</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="filtered-count">-</div>
+          <div class="stat-label">Currently Filtered</div>
+        </div>
+      </div>
+      
+      <!-- Alert Messages -->
+      <div id="alert-container"></div>
+      
+      <!-- Main Content Grid -->
+      <div class="main-grid">
+        <!-- Sidebar: Tags -->
+        <div class="sidebar">
+          <div class="section-title">Filter by Tag</div>
+          <input type="text" id="tag-search" class="search-box" placeholder="Search tags...">
+          <div class="tag-list" id="tag-list">
+            <div class="loading">Loading tags...</div>
+          </div>
+          <button class="button button-secondary" onclick="clearFilters()">Clear Filters</button>
+        </div>
+        
+        <!-- Main: Channels -->
+        <div class="channels-section">
+          <div class="channels-header">
+            <input type="text" id="channel-search" class="channel-search" placeholder="Search channels by name or tag..." onkeyup="debouncedSearch()">
+            <button class="members-toggle" id="members-toggle" onclick="toggleMembers()">Show Members</button>
+          </div>
+          
+          <div class="channel-list" id="channel-list">
+            <div class="loading">
+              <div class="spinner"></div>
+              Loading channels...
+            </div>
+          </div>
+          
+          <!-- Edit Panel -->
+          <div class="edit-panel" id="edit-panel">
+            <div class="edit-panel-title">Edit Channel Tag</div>
+            <div id="selected-channel-info" class="tag-input-group">
+              <div class="channel-name" id="selected-channel-name"></div>
+            </div>
+            <div class="tag-input-group">
+              <label class="tag-input-label">Select Tags (must exist in Tags sheet):</label>
+              <div class="tag-select-group">
+                <select id="tag-select" class="tag-select">
+                  <option value="">-- Select a tag --</option>
+                </select>
+                <button class="button button-primary" onclick="addTagChip()" style="width: auto; margin: 0;">Add Tag</button>
+              </div>
+              <div class="tag-chips-container" id="tag-chips-container">
+                <span style="color: #6c757d; font-size: 13px;">No tags selected</span>
+              </div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+              <button class="button button-primary" onclick="updateTagsLocal()" style="flex: 1;">Update Tags (Local)</button>
+              <button class="button button-secondary" onclick="clearSelection()" style="flex: 1;">Cancel</button>
+            </div>
+            <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 6px; font-size: 12px; color: #856404;">
+              ℹ️ Changes are saved locally. Click "Save Changes" in the header to update the sheet.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let allChannels = [];
+    let allTags = [];
+    let selectedChannel = null;
+    let selectedTag = null;
+    let tagCounts = {};
+    let filteredChannels = [];
+    let selectedTagsArray = [];
+    let membersVisible = false;
+    let pendingChanges = {}; // Track pending changes: {row: {tags: []}}
+    let originalChannelData = {}; // Store original data for comparison
+    
+    // Initialize on page load - load tags first for dropdown
+    window.onload = function() {
+      loadTagsOnInit();
+    };
+    
+    // Load tags immediately on page load for dropdown
+    function loadTagsOnInit() {
+      showLoading('tag-list');
+      google.script.run
+        .withSuccessHandler(function(tags) {
+          allTags = tags;
+          populateTagDropdown();
+          displayTags();
+          // Now load full data
+          loadData();
+        })
+        .withFailureHandler(onError)
+        .getAllTagsOnLoad();
+    }
+    
+    // Load all data
+    function loadData() {
+      showLoading('channel-list');
+      
+      google.script.run
+        .withSuccessHandler(onDataLoaded)
+        .withFailureHandler(onError)
+        .getAllChannels();
+    }
+    
+    function onDataLoaded(data) {
+      allChannels = data.channels;
+      filteredChannels = allChannels;
+      
+      // Store original data for comparison
+      originalChannelData = {};
+      allChannels.forEach(channel => {
+        originalChannelData[channel.row] = {
+          tags: [...(channel.tags || [])]
+        };
+      });
+      
+      // Clear pending changes on fresh load
+      pendingChanges = {};
+      updateSaveButton();
+      
+      loadTags();
+      loadStatistics();
+      displayChannels(allChannels);
+    }
+    
+    function loadTags() {
+      google.script.run
+        .withSuccessHandler(onTagsLoaded)
+        .withFailureHandler(onError)
+        .getAllPrefixes();
+    }
+    
+    function onTagsLoaded(tags) {
+      allTags = tags;
+      displayTags();
+      populateTagDropdown();
+    }
+    
+    function populateTagDropdown() {
+      const select = document.getElementById('tag-select');
+      select.innerHTML = '<option value="">-- Select a tag --</option>';
+      allTags.forEach(tag => {
+        const option = document.createElement('option');
+        option.value = tag;
+        option.textContent = tag;
+        select.appendChild(option);
+      });
+    }
+    
+    function loadStatistics() {
+      google.script.run
+        .withSuccessHandler(onStatsLoaded)
+        .withFailureHandler(onError)
+        .getStatistics();
+    }
+    
+    function onStatsLoaded(stats) {
+      document.getElementById('total-channels').textContent = stats.totalChannels;
+      document.getElementById('total-tags').textContent = stats.totalTags;
+      document.getElementById('untagged').textContent = stats.untaggedCount || 0;
+      tagCounts = stats.tagCounts || {};
+      displayTags();
+      updateFilteredCount();
+    }
+    
+    function displayTags() {
+      const tagList = document.getElementById('tag-list');
+      const searchTerm = document.getElementById('tag-search').value.toLowerCase();
+      
+      let html = '';
+      const filteredTags = allTags.filter(tag => 
+        tag.toLowerCase().includes(searchTerm)
+      );
+      
+      if (filteredTags.length === 0) {
+        html = '<div class="loading">No tags found</div>';
+      } else {
+        filteredTags.forEach(tag => {
+          const count = tagCounts[tag] || 0;
+          const isSelected = selectedTag === tag;
+          html += `
+            <div class="tag-item ${isSelected ? 'selected' : ''}" onclick="filterByTag('${tag}')">
+              <span class="tag-name">${tag}</span>
+              <span class="tag-count">${count}</span>
+            </div>
+          `;
+        });
+      }
+      
+      tagList.innerHTML = html;
+    }
+    
+    function displayChannels(channels) {
+      const channelList = document.getElementById('channel-list');
+      
+      if (channels.length === 0) {
+        channelList.innerHTML = '<div class="loading">No channels found</div>';
+        return;
+      }
+      
+      let html = '';
+      channels.forEach(channel => {
+        const isSelected = selectedChannel && selectedChannel.row === channel.row;
+        const hasPendingChanges = pendingChanges[channel.row] !== undefined;
+        
+        // Use pending changes if available, otherwise use channel tags
+        let tags = [];
+        if (hasPendingChanges) {
+          tags = pendingChanges[channel.row].tags || [];
+        } else {
+          tags = channel.tags || [];
+        }
+        
+        const hasTags = tags.length > 0;
+        
+        // Build tags HTML
+        let tagsHtml = '';
+        if (hasTags) {
+          tags.forEach(tag => {
+            tagsHtml += `<span class="channel-tag" onclick="event.stopPropagation(); filterByTag('${escapeHtml(tag)}')">${escapeHtml(tag)}</span>`;
+          });
+        } else {
+          tagsHtml = '<span class="channel-tag empty">untagged</span>';
+        }
+        
+        // Add pending indicator
+        const pendingIndicator = hasPendingChanges ? '<span style="color: #ffc107; font-size: 11px; margin-left: 8px;">● Unsaved</span>' : '';
+        
+        html += `
+          <div class="channel-item ${isSelected ? 'selected' : ''} ${hasPendingChanges ? 'has-pending' : ''}" onclick="selectChannel(${channel.row}, '${escapeHtml(channel.name)}', ${JSON.stringify(tags)})">
+            <div class="channel-name">
+              ${escapeHtml(channel.name)}
+              ${pendingIndicator}
+            </div>
+            <div class="channel-meta">
+              <span>Type: ${escapeHtml(channel.type || 'N/A')}</span>
+              <span>Members: ${channel.members || 'N/A'}</span>
+            </div>
+            <div class="channel-tags">${tagsHtml}</div>
+          </div>
+        `;
+      });
+      
+      channelList.innerHTML = html;
+    }
+    
+    function filterByTag(tag) {
+      selectedTag = tag;
+      showAlert('info', `Filtering by tag: ${tag}`);
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          showAlert('success', result.message);
+          loadData(); // Reload to show filtered view
+        })
+        .withFailureHandler(onError)
+        .filterByTag(tag);
+    }
+    
+    function clearFilters() {
+      selectedTag = null;
+      google.script.run
+        .withSuccessHandler(function(result) {
+          showAlert('success', result.message);
+          loadData();
+        })
+        .withFailureHandler(onError)
+        .clearFilters();
+    }
+    
+    // Debounce function
+    function debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
+    
+    // Debounced search
+    const debouncedSearch = debounce(searchChannels, 300);
+    
+    function searchChannels() {
+      const query = document.getElementById('channel-search').value.toLowerCase();
+      if (!query) {
+        filteredChannels = allChannels;
+        displayChannels(allChannels);
+        updateFilteredCount();
+        return;
+      }
+      
+      filteredChannels = allChannels.filter(channel => {
+        // Search in channel name
+        if (channel.name.toLowerCase().includes(query)) {
+          return true;
+        }
+        
+        // Search in tags array
+        if (channel.tags && channel.tags.length > 0) {
+          return channel.tags.some(tag => tag.toLowerCase().includes(query));
+        }
+        
+        return false;
+      });
+      
+      displayChannels(filteredChannels);
+      updateFilteredCount();
+    }
+    
+    function selectChannel(row, name, currentTags) {
+      selectedChannel = { row: row, name: name };
+      
+      // Use pending changes if available, otherwise use current tags
+      if (pendingChanges[row]) {
+        selectedTagsArray = [...pendingChanges[row].tags];
+      } else {
+        selectedTagsArray = Array.isArray(currentTags) ? [...currentTags] : [];
+      }
+      
+      document.getElementById('selected-channel-name').textContent = name;
+      document.getElementById('edit-panel').classList.add('active');
+      renderTagChips(selectedTagsArray);
+      
+      // Scroll to edit panel
+      document.getElementById('edit-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    
+    function addTagChip() {
+      const select = document.getElementById('tag-select');
+      const selectedTag = select.value.trim();
+      
+      if (!selectedTag) {
+        showAlert('error', 'Please select a tag first');
+        return;
+      }
+      
+      // Check if tag already exists
+      if (selectedTagsArray.includes(selectedTag)) {
+        showAlert('info', 'Tag already added');
+        return;
+      }
+      
+      selectedTagsArray.push(selectedTag);
+      renderTagChips(selectedTagsArray);
+      select.value = ''; // Reset dropdown
+    }
+    
+    function removeTagChip(tag) {
+      selectedTagsArray = selectedTagsArray.filter(t => t !== tag);
+      renderTagChips(selectedTagsArray);
+    }
+    
+    function renderTagChips(tagsArray) {
+      const container = document.getElementById('tag-chips-container');
+      
+      if (!tagsArray || tagsArray.length === 0) {
+        container.innerHTML = '<span style="color: #6c757d; font-size: 13px;">No tags selected</span>';
+        return;
+      }
+      
+      let html = '';
+      tagsArray.forEach(tag => {
+        html += `
+          <div class="tag-chip">
+            <span>${escapeHtml(tag)}</span>
+            <span class="tag-chip-remove" onclick="removeTagChip('${escapeHtml(tag)}')">×</span>
+          </div>
+        `;
+      });
+      
+      container.innerHTML = html;
+    }
+    
+    function clearSelection() {
+      selectedChannel = null;
+      selectedTagsArray = [];
+      document.getElementById('edit-panel').classList.remove('active');
+      renderTagChips([]);
+      
+      // Refresh display to show any pending changes
+      displayChannels(filteredChannels);
+    }
+    
+    function toggleMembers() {
+      membersVisible = !membersVisible;
+      const container = document.querySelector('.channels-section');
+      const button = document.getElementById('members-toggle');
+      
+      if (membersVisible) {
+        container.classList.add('show-members');
+        button.textContent = 'Hide Members';
+      } else {
+        container.classList.remove('show-members');
+        button.textContent = 'Show Members';
+      }
+    }
+    
+    function updateTagsLocal() {
+      if (!selectedChannel) {
+        showAlert('error', 'Please select a channel first');
+        return;
+      }
+      
+      // Validate all tags exist
+      const invalidTags = selectedTagsArray.filter(tag => !tagExists(tag));
+      if (invalidTags.length > 0) {
+        showAlert('error', `Invalid tags: ${invalidTags.join(', ')}. Please select from existing tags.`);
+        return;
+      }
+      
+      // Store pending change (don't save to sheet yet)
+      pendingChanges[selectedChannel.row] = {
+        tags: [...selectedTagsArray]
+      };
+      
+      // Update local channel data immediately for UI
+      const channel = allChannels.find(c => c.row === selectedChannel.row);
+      if (channel) {
+        channel.tags = [...selectedTagsArray];
+        channel.tag = selectedTagsArray.join(', '); // Keep for backward compatibility
+      }
+      
+      // Update filtered channels if it's in the list
+      const filteredChannel = filteredChannels.find(c => c.row === selectedChannel.row);
+      if (filteredChannel) {
+        filteredChannel.tags = [...selectedTagsArray];
+        filteredChannel.tag = selectedTagsArray.join(', ');
+      }
+      
+      // Refresh display
+      displayChannels(filteredChannels);
+      updateSaveButton();
+      clearSelection();
+      
+      showAlert('success', 'Tags updated locally. Click "Save Changes" to update the sheet.');
+    }
+    
+    function saveAllChanges() {
+      const changes = Object.keys(pendingChanges).map(row => ({
+        row: parseInt(row),
+        tags: pendingChanges[row].tags
+      }));
+      
+      if (changes.length === 0) {
+        showAlert('info', 'No changes to save');
+        return;
+      }
+      
+      // Disable both buttons during save
+      const saveBtn = document.getElementById('save-btn');
+      const refreshBtn = document.getElementById('refresh-btn');
+      saveBtn.disabled = true;
+      refreshBtn.disabled = true;
+      saveBtn.textContent = `💾 Saving ${changes.length} change(s)...`;
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          showAlert('success', result.message);
+          
+          // Clear pending changes
+          pendingChanges = {};
+          updateSaveButton();
+          
+          // Clear selection
+          clearSelection();
+          
+          // Reload data to get fresh state from sheet
+          loadData();
+          
+          saveBtn.disabled = false;
+          refreshBtn.disabled = false;
+          saveBtn.innerHTML = '💾 Save Changes';
+        })
+        .withFailureHandler(function(error) {
+          showAlert('error', 'Error saving: ' + error.message);
+          saveBtn.disabled = false;
+          refreshBtn.disabled = false;
+          const count = Object.keys(pendingChanges).length;
+          saveBtn.innerHTML = count > 0 
+            ? `💾 Save Changes (${count})<span id="unsaved-indicator" class="unsaved-indicator"></span>`
+            : '💾 Save Changes';
+        })
+        .bulkUpdateChannelTags(changes);
+    }
+    
+    function refreshData() {
+      const refreshBtn = document.getElementById('refresh-btn');
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = '🔄 Refreshing...';
+      
+      // Clear pending changes warning
+      if (Object.keys(pendingChanges).length > 0) {
+        if (!confirm('You have unsaved changes. Refresh will discard them. Continue?')) {
+          refreshBtn.disabled = false;
+          refreshBtn.innerHTML = '🔄 Refresh';
+          return;
+        }
+        pendingChanges = {};
+        updateSaveButton();
+      }
+      
+      // Clear selection
+      clearSelection();
+      
+      // Reload everything
+      loadTagsOnInit();
+      
+      setTimeout(() => {
+        refreshBtn.disabled = false;
+        refreshBtn.innerHTML = '🔄 Refresh';
+      }, 1500);
+    }
+    
+    function updateSaveButton() {
+      const saveBtn = document.getElementById('save-btn');
+      const indicator = document.getElementById('unsaved-indicator');
+      const hasChanges = Object.keys(pendingChanges).length > 0;
+      
+      if (hasChanges) {
+        saveBtn.disabled = false;
+        saveBtn.classList.add('has-changes');
+        indicator.style.display = 'inline-block';
+        saveBtn.innerHTML = `💾 Save Changes (${Object.keys(pendingChanges).length})<span id="unsaved-indicator" class="unsaved-indicator"></span>`;
+      } else {
+        saveBtn.disabled = true;
+        saveBtn.classList.remove('has-changes');
+        indicator.style.display = 'none';
+        saveBtn.innerHTML = '💾 Save Changes';
+      }
+    }
+    
+    function tagExists(tag) {
+      if (!tag) return true; // Empty tag is allowed
+      const tagLower = tag.toLowerCase();
+      return allTags.some(t => t.toLowerCase() === tagLower);
+    }
+    
+    function updateFilteredCount() {
+      const count = filteredChannels.length;
+      document.getElementById('filtered-count').textContent = count;
+    }
+    
+    function showAlert(type, message) {
+      const container = document.getElementById('alert-container');
+      const alert = document.createElement('div');
+      alert.className = `alert alert-${type}`;
+      alert.textContent = message;
+      container.innerHTML = '';
+      container.appendChild(alert);
+      
+      setTimeout(() => {
+        alert.style.opacity = '0';
+        setTimeout(() => alert.remove(), 300);
+      }, 5000);
+    }
+    
+    function showLoading(elementId) {
+      const element = document.getElementById(elementId);
+      element.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+    }
+    
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    function onError(error) {
+      showAlert('error', 'Error: ' + error.message);
+      console.error(error);
+    }
+    
+    // Search tags as user types (debounced)
+    const debouncedTagSearch = debounce(displayTags, 300);
+    document.getElementById('tag-search').addEventListener('input', debouncedTagSearch);
+    
+    // Allow Enter key to add tag
+    document.getElementById('tag-select').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addTagChip();
+      }
+    });
+  </script>
+</body>
+</html>
+
