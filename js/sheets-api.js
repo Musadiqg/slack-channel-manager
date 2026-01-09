@@ -93,7 +93,8 @@ async function getAllChannels() {
 
 /**
  * Get all tags from Tags sheet
- * Sheet has column A=Prefix
+ * Sheet has columns: Prefix and Label
+ * Returns both tags array and prefix-to-label mapping
  */
 async function getAllTags() {
   if (!checkSignedIn()) {
@@ -107,7 +108,7 @@ async function getAllTags() {
   }
   
   try {
-    // Read header to find Prefix column
+    // Read header to find Prefix and Label columns
     const headerResponse = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: CONFIG.SPREADSHEET_ID,
       range: `${CONFIG.SHEET_NAMES.TAGS}!A1:Z1`,
@@ -123,27 +124,50 @@ async function getAllTags() {
     if (prefixCol === -1) prefixCol = headers.findIndex(h => h === 'tag' || h === 'tags');
     if (prefixCol === -1) prefixCol = 0; // Default to first column
     
-    console.log('Tags sheet - Prefix column index:', prefixCol);
+    // Find the Label column
+    let labelCol = headers.findIndex(h => h === 'label');
+    if (labelCol === -1) labelCol = -1; // Label column is optional
     
-    const colLetter = String.fromCharCode(65 + prefixCol);
+    console.log('Tags sheet - Prefix column index:', prefixCol, 'Label column index:', labelCol);
+    
+    // Read all data rows (both prefix and label columns)
+    const maxCol = Math.max(prefixCol, labelCol >= 0 ? labelCol : prefixCol);
+    const colRange = `${String.fromCharCode(65)}2:${String.fromCharCode(65 + maxCol)}`;
     
     const response = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: CONFIG.SPREADSHEET_ID,
-      range: `${CONFIG.SHEET_NAMES.TAGS}!${colLetter}2:${colLetter}`,
+      range: `${CONFIG.SHEET_NAMES.TAGS}!${colRange}`,
       valueRenderOption: 'UNFORMATTED_VALUE'
     });
     
     const rows = response.result.values || [];
-    const tags = rows
-      .map(row => (row[0] || '').toString().trim())
-      .filter(tag => tag)
-      .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    const tags = [];
+    const tagLabelMap = {}; // Map prefix -> label
+    
+    rows.forEach(row => {
+      const prefix = prefixCol >= 0 ? (row[prefixCol] || '').toString().trim() : '';
+      if (!prefix) return; // Skip empty rows
+      
+      const label = labelCol >= 0 && row[labelCol] ? (row[labelCol] || '').toString().trim() : '';
+      
+      tags.push(prefix);
+      if (label) {
+        tagLabelMap[prefix.toLowerCase()] = label;
+      }
+    });
+    
+    tags.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    
+    const result = {
+      tags: tags,
+      tagLabelMap: tagLabelMap
+    };
     
     // Cache the result
-    saveToCache('tags', tags);
+    saveToCache('tags', result);
     
-    console.log(`Loaded ${tags.length} tags`);
-    return tags;
+    console.log(`Loaded ${tags.length} tags with ${Object.keys(tagLabelMap).length} labels`);
+    return result;
   } catch (error) {
     console.error('Error loading tags:', error);
     throw new Error('Failed to load tags: ' + (error.result?.error?.message || error.message));
@@ -209,8 +233,9 @@ async function addTagsIfNotExist(newTags) {
   
   try {
     // Get existing tags
-    const existingTags = await getAllTags();
-    const existingTagsLower = new Set(existingTags.map(t => t.toLowerCase()));
+    const tagsData = await getAllTags();
+    const existingTags = tagsData.tags || tagsData; // Handle both old and new format
+    const existingTagsLower = new Set(Array.isArray(existingTags) ? existingTags.map(t => t.toLowerCase()) : []);
     
     // Find tags that don't exist
     const tagsToAdd = newTags.filter(tag => {
@@ -256,7 +281,8 @@ async function addTagsIfNotExist(newTags) {
  */
 async function getStatistics() {
   const channels = await getAllChannels();
-  const tags = await getAllTags();
+  const tagsData = await getAllTags();
+  const tags = tagsData.tags || tagsData; // Handle both old and new format
   
   const tagCounts = {};
   let untaggedCount = 0;
@@ -267,7 +293,7 @@ async function getStatistics() {
       channel.tags.forEach(tag => {
         const tagLower = tag.toLowerCase();
         // Find the original case version
-        const originalTag = tags.find(t => t.toLowerCase() === tagLower) || tag;
+        const originalTag = Array.isArray(tags) ? tags.find(t => t.toLowerCase() === tagLower) || tag : tag;
         tagCounts[originalTag] = (tagCounts[originalTag] || 0) + 1;
       });
     } else {
@@ -277,7 +303,7 @@ async function getStatistics() {
   
   return {
     totalChannels: channels.length,
-    totalTags: tags.length,
+    totalTags: Array.isArray(tags) ? tags.length : 0,
     tagCounts: tagCounts,
     untaggedCount: untaggedCount
   };

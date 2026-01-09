@@ -7,6 +7,7 @@ const AppState = {
   // Data
   allChannels: [],
   allTags: [],
+  tagLabelMap: {}, // Map prefix -> label
   filteredChannels: [],
   
   // Pagination
@@ -143,8 +144,10 @@ async function loadInitialData() {
   try {
     showTableLoading(true);
     
-    // Load tags first
-    AppState.allTags = await getAllTags();
+    // Load tags first (now returns {tags, tagLabelMap})
+    const tagsData = await getAllTags();
+    AppState.allTags = tagsData.tags || tagsData; // Handle both old and new format
+    AppState.tagLabelMap = tagsData.tagLabelMap || {};
     
     // Load channels
     AppState.allChannels = await getAllChannels();
@@ -383,8 +386,9 @@ function renderTableRow(channel) {
   let tagsHtml = '';
   if (tags.length > 0) {
     tagsHtml = tags.map(tag => {
+      const tagLabel = getTagLabel(tag);
       const color = getTagColor(tag);
-      return `<span class="tag-badge" style="background:${color.bg};color:${color.text};" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}<span class="remove-tag" onclick="event.stopPropagation();removeTag(${channel.row},'${escapeHtml(tag)}')">&times;</span></span>`;
+      return `<span class="tag-badge" style="background:${color.bg};color:${color.text};" data-tag="${escapeHtml(tag)}" title="${escapeHtml(tag)}">${escapeHtml(tagLabel)}<span class="remove-tag" onclick="event.stopPropagation();removeTag(${channel.row},'${escapeHtml(tag)}')">&times;</span></span>`;
     }).join('');
   } else {
     tagsHtml = '<span class="tag-badge untagged">untagged</span>';
@@ -474,13 +478,15 @@ function renderModalTags(searchQuery = '') {
     const isSelected = AppState.modalSelectedTags.includes(tag);
     const count = AppState.tagCounts[tag] || 0;
     const color = getTagColor(tag);
+    const tagLabel = getTagLabel(tag);
     
     return `
       <div class="modal-tag-item ${isSelected ? 'selected' : ''}"
            onclick="toggleModalTag('${escapeHtml(tag)}')"
-           style="${isSelected ? '' : `border-color: ${color.bg};`}">
+           style="${isSelected ? '' : `border-color: ${color.bg};`}"
+           title="${escapeHtml(tag)}">
         <span class="checkbox"></span>
-        <span class="tag-label">${escapeHtml(tag)}</span>
+        <span class="tag-label">${escapeHtml(tagLabel)}</span>
         <span class="tag-count">${count}</span>
       </div>
     `;
@@ -590,12 +596,14 @@ function renderActiveFilters() {
   }
   
   AppState.activeTagFilters.forEach(tag => {
+    const tagLabel = getTagLabel(tag);
     const color = getTagColor(tag);
     chips.push(`
       <span class="active-filter-chip"
             style="background: ${color.bg}; border-color: ${color.text}; color: ${color.text};"
-            onclick="removeTagFilter('${escapeHtml(tag)}')">
-        ${escapeHtml(tag)}
+            onclick="removeTagFilter('${escapeHtml(tag)}')"
+            title="${escapeHtml(tag)}">
+        ${escapeHtml(tagLabel)}
         <span class="remove">&times;</span>
       </span>
     `);
@@ -684,11 +692,13 @@ function renderDropdownTags(container, currentTags, row, tagsToShow = null) {
   container.innerHTML = sortedTags.map(tag => {
     const isSelected = currentTags.some(t => t.toLowerCase() === tag.toLowerCase());
     const color = getTagColor(tag);
+    const tagLabel = getTagLabel(tag);
     return `
       <div class="tag-dropdown-item ${isSelected ? 'selected' : ''}"
-           onclick="toggleTag(${row}, '${escapeHtml(tag)}')">
+           onclick="toggleTag(${row}, '${escapeHtml(tag)}')"
+           title="${escapeHtml(tag)}">
         <span class="checkbox"></span>
-        <span>${escapeHtml(tag)}</span>
+        <span>${escapeHtml(tagLabel)}</span>
       </div>
     `;
   }).join('');
@@ -702,6 +712,15 @@ function closeAllDropdowns() {
 // ==========================================================================
 // Tag Management
 // ==========================================================================
+
+/**
+ * Get the label for a tag prefix, or return the prefix if no label exists
+ */
+function getTagLabel(prefix) {
+  if (!prefix) return '';
+  const label = AppState.tagLabelMap[prefix.toLowerCase()];
+  return label || prefix;
+}
 
 function toggleTag(row, tag) {
   const channel = AppState.allChannels.find(c => c.row === row);
